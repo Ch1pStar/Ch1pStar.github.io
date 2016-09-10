@@ -18,6 +18,8 @@ class TileMapRenderSystem extends Fae.ecs.System{
     update(tilemap){
         if (!tilemap.visible) return;
 
+        this.renderer.setActiveObjectRenderer(this.tilemapRenderer);
+
         let panSpeed = .1;
 
         if(!tilemap.mouseDown){
@@ -25,53 +27,43 @@ class TileMapRenderSystem extends Fae.ecs.System{
           // tilemap.transform.x -= panSpeed*30;
         }
 
-        tilemap.vertexData = [];
-
-        this.renderer.setActiveObjectRenderer(this.tilemapRenderer);
-
         const clean = !tilemap._anchorDirty && tilemap._cachedTransformUpdateId === tilemap.transform._worldUpdateId;
 
-        const l = tilemap.layers[0];
+        if (tilemap._texture.ready && !clean){
+            tilemap.vertexData = [];               
+        
+            const l = tilemap.layers[0];
 
-        const drawRect = tilemap.screenRect;
-        drawRect.x = -tilemap.transform.x;
-        drawRect.y = -tilemap.transform.y;
+            const drawRect = tilemap.screenRect;
+            drawRect.x = -tilemap.transform.x;
+            drawRect.y = -tilemap.transform.y;
 
-        drawRect.width /= tilemap.transform.scaleX; 
-        drawRect.height /= tilemap.transform.scaleY; 
+            drawRect.width /= tilemap.transform.scaleX; 
+            drawRect.height /= tilemap.transform.scaleY; 
 
-        let offset = panSpeed<1?1:panSpeed;
+            let offset = panSpeed<1?1:panSpeed;
 
-        let x0 = Math.floor(drawRect.left/map.tilewidth)-offset;
-        let x1 = Math.floor(drawRect.right/map.tilewidth)+offset;
-        let y0 = Math.floor(drawRect.top/map.tileheight)-offset;
-        let y1 = Math.floor(drawRect.bottom/map.tileheight)+offset;
+            let x0 = Math.floor(drawRect.left/map.tilewidth)-offset;
+            let x1 = Math.floor(drawRect.right/map.tilewidth)+offset;
+            let y0 = Math.floor(drawRect.top/map.tileheight)-offset;
+            let y1 = Math.floor(drawRect.bottom/map.tileheight)+offset;
 
-        const width = l.width;
+            const width = l.width;
 
+            for(let i = y0; i<y1; i++){
+              for(let j = x0; j<x1;j++){
+                let row = Math.abs(j)%(tilemap.height*map.tilewidth);
+                let col = Math.abs(width*i);
+                let index = l.data[row+col]||13;
+                calculateVertices(tilemap, j*map.tilewidth, i*map.tileheight, index-1);
+              }
+            }
 
-        for(let i = y0; i<y1; i++){
-          for(let j = x0; j<x1;j++){
-            let row = Math.abs(j)%(tilemap.height*map.tilewidth);
-            let col = Math.abs(width*i);
-            let index = l.data[row+col]||13;
-            calculateVertices(tilemap, j*map.tilewidth, i*map.tileheight, index-1);
-            this.tilemapRenderer.render(tilemap);
-          }
+            tilemap._cachedTransformUpdateId = tilemap.transform._worldUpdateId;
+            tilemap._anchorDirty = false;
         }
 
-        // debugger;
-
-
-
-        // console.log(l.data.length);
-        // if (tilemap._texture.ready && !clean){
-        //     calculateVertices(sprite);
-        //     sprite._cachedTransformUpdateId = sprite.transform._worldUpdateId;
-        //     sprite._anchorDirty = false;
-        // }
-
-        // this.tilemapRenderer.render(tilemap);
+        this.tilemapRenderer.render(tilemap);
     }
 }
 
@@ -84,7 +76,7 @@ function calculateVertices(map, x, y, index){
     const d = wt.d;
     const tx = wt.tx;
     const ty = wt.ty;
-    let vertexData = map.vertexData;
+    const vertexData = map.vertexData;
     const outVert = new Float32Array(9);
     const rect = map.screenRect;
 
@@ -117,7 +109,7 @@ function calculateVertices(map, x, y, index){
 
     //TODO Use uniform instead of attribute in shader
     outVert[8] = index;
-    
+
     vertexData.push(outVert);
 }
 

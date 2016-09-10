@@ -191,11 +191,13 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
     currentGroup.shader = null;
 
     this.tick++;
+    
+    const map = this.tileMap;
 
     for (let i = 0; i < this.currentIndex; ++i){
             // upload the sprite elemetns...
             // they have all ready been calculated so we just need to push them into the buffer.
-            const map = this.tileMap;
+
 
             nextTexture = map._texture.source;
 
@@ -237,9 +239,10 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
             const tint = map.tint.bgr + (map.worldAlpha * 255 << 24);
             const uvs = map._texture._uvs.uvsUint32;
             const textureId = nextTexture._id;
-            const vertexData = map.vertexData.pop();
+            const vertexData = map.vertexData[i];
+            // const vertexData = map.vertexData.pop();
 
-           
+
             // debugger;
 
             // xy
@@ -329,19 +332,22 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
 
 
   render(tilemap){
-    if (this.currentIndex >= this.size){
-        this.flush();
-    }
+    for(let i  = 0; i < tilemap.vertexData.length;i++){
 
-    // // if the uvs have not updated then no point rendering just yet!
-    if (!tilemap.texture._uvs){
-        return;
-    }
+        if (this.currentIndex >= this.size){
+            this.flush();
+        }
 
-    // increment the batchsize
-    // this.tiles[this.currentIndex++] = sprite;
-    this.currentIndex++;
-    this.tileMap = tilemap;
+        // // if the uvs have not updated then no point rendering just yet!
+        if (!tilemap.texture._uvs){
+            return;
+        }
+
+        // increment the batchsize
+        // this.tiles[this.currentIndex++] = sprite;
+        this.currentIndex++;
+        this.tileMap = tilemap;
+    }
   }
 }
 

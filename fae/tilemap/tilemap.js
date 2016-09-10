@@ -44,6 +44,8 @@ class TileMap extends Fae.ecs.Entity.with(
 
 
       this.vertexData = [];
+      this.currVertexData = [];
+      this.vertexIndex = 0;
 
       this.tint = Fae.util.Color.WHITE.clone();
 
