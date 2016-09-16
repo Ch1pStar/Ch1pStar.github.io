@@ -19,20 +19,11 @@ class TileMapRenderSystem extends Fae.ecs.System{
         if (!tilemap.visible) return;
 
         this.renderer.setActiveObjectRenderer(this.tilemapRenderer);
-
-        let panSpeed = .1;
-
-        if(!tilemap.mouseDown){
-          // tilemap.transform.y -= panSpeed*30;
-          // tilemap.transform.x -= panSpeed*30;
-        }
-
         const clean = !tilemap._anchorDirty && tilemap._cachedTransformUpdateId === tilemap.transform._worldUpdateId;
 
-        if (tilemap._texture.ready && !clean){
+        if (!clean){
             tilemap.vertexData = [];               
         
-            const l = tilemap.layers[0];
 
             const drawRect = tilemap.screenRect;
             drawRect.x = -tilemap.transform.x;
@@ -41,21 +32,39 @@ class TileMapRenderSystem extends Fae.ecs.System{
             drawRect.width /= tilemap.transform.scaleX; 
             drawRect.height /= tilemap.transform.scaleY; 
 
-            let offset = panSpeed<1?1:panSpeed;
+            const panSpeed = tilemap.panSpeed;
+            const offset = panSpeed<1?1:panSpeed;
 
-            let x0 = Math.floor(drawRect.left/map.tilewidth)-offset;
-            let x1 = Math.floor(drawRect.right/map.tilewidth)+offset;
-            let y0 = Math.floor(drawRect.top/map.tileheight)-offset;
-            let y1 = Math.floor(drawRect.bottom/map.tileheight)+offset;
+            const x0 = Math.floor(drawRect.left/map.tilewidth)-offset;
+            const x1 = Math.floor(drawRect.right/map.tilewidth)+offset;
+            const y0 = Math.floor(drawRect.top/map.tileheight)-offset;
+            const y1 = Math.floor(drawRect.bottom/map.tileheight)+offset;
 
-            const width = l.width;
+            const width = tilemap.width;
 
             for(let i = y0; i<y1; i++){
               for(let j = x0; j<x1;j++){
-                let row = Math.abs(j)%(tilemap.height*map.tilewidth);
-                let col = Math.abs(width*i);
-                let index = l.data[row+col]||13;
-                calculateVertices(tilemap, j*map.tilewidth, i*map.tileheight, index-1);
+                
+                const row = j%(tilemap.height*map.tilewidth);
+                const col = width*i;
+
+                let layerOffset = 0;
+                let frame = 0;
+                for(let k = 0; k < tilemap.layers.length; k++){
+                    if(tilemap.layers[k].visible){
+                        layerOffset += tilemap.layerLen*k;
+                        const nFrame = tilemap.layerData[row+col+layerOffset];
+                        if(nFrame != 0){
+                            frame = nFrame;
+                        }
+                    }
+                }
+
+                if(!frame){
+                    frame = tilemap.defaultTile;
+                }
+
+                calculateVertices(tilemap, j*map.tilewidth, i*map.tileheight, frame);
               }
             }
 
@@ -67,7 +76,7 @@ class TileMapRenderSystem extends Fae.ecs.System{
     }
 }
 
-function calculateVertices(map, x, y, index){
+function calculateVertices(map, x, y, frame){
     // set the vertex data
     const wt = map.transform.worldTransform;
     const a = wt.a;
@@ -108,7 +117,7 @@ function calculateVertices(map, x, y, index){
     outVert[7] = (d * h0) + (b * w1) + ty;
 
     //TODO Use uniform instead of attribute in shader
-    outVert[8] = index;
+    outVert[8] = frame;
 
     vertexData.push(outVert);
 }

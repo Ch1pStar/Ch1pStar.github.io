@@ -2,13 +2,13 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
   constructor(renderer){
     super(renderer);
 
-    this.vertSize = 6;
+    this.vertSize = 5;
     this.vertByteSize = this.vertSize * 4;
     this.size = BitTwiddle.nextPow2(TilemapRenderer.DEFAULT_SPRITE_BATCH_SIZE);
     this.buffers = [];
     this.indices = Fae.glutil.GLQuad.createIndices(this.size);
     
-    this.shader = null;
+    this.shaders = [];
     
     // create buffer views
     for (let i = 1; i <= this.size; i *= 2){
@@ -50,8 +50,6 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
     this._onContextChangeBinding = renderer.onContextChange.add(this.onContextChange, this);
 
     this.onContextChange();
-
-    console.log(this);
   }    
   onContextChange(){
     const gl = this.renderer.gl;
@@ -64,14 +62,16 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
     // check the maximum number of if statements shaders are allowed *up to* the max textures.
     this._maxTextures = Fae.util.getMaxIfStatmentsInShader(gl, this._maxTextures);
 
-    this.shader = createTileMapShader(this.renderer);
+    this.shaders.length = this._maxTextures;
+    this.shaders[0] = this.shaders[0] || createTileMapShader(this.renderer, 1);
+    this.shaders[1] = this.shaders[1] || createTileMapShader(this.renderer, 2);
 
     // create new index buffer
     this.indexBuffer = Fae.glutil.GLBuffer.createIndexBuffer(gl, this.indices, gl.STATIC_DRAW);
 
     // we use the second shader as the first one depending on your browser may omit aTextureId
     // as it is not used by the shader so is optimized out.
-    const attribs = this.shader.attributes;
+    const attribs = this.shaders[1].attributes;
     const maxVaos = this.vertexBuffers.length || this.startNumVaos;
 
     // create initial vertex buffers and VAOs
@@ -102,7 +102,7 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
     this.buffers = null;
     this._buffersMem = null;
     this.indices = null;
-    this.shader = null;
+    this.shaders = null;
     this.groups = null;
     this.tileMap = null;
     this.vertexBuffers = null;
@@ -139,7 +139,6 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
             .addAttribute(vbuffer, attribs.aTextureCoord, gl.UNSIGNED_SHORT, true, this.vertByteSize, 2 * 4)
             .addAttribute(vbuffer, attribs.aColor, gl.UNSIGNED_BYTE, true, this.vertByteSize, 3 * 4)
             .addAttribute(vbuffer, attribs.aTextureId, gl.FLOAT, false, this.vertByteSize, 4 * 4)
-            .addAttribute(vbuffer, attribs.aFrame, gl.FLOAT, false, this.vertByteSize, 5 * 4)
     );
   }
 
@@ -183,7 +182,7 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
     let groupCount = 1;
     let textureCount = 0;
     let currentGroup = this.groups[0];
-    let blendMode = Fae.util.BlendMode.NORMAL;
+    const blendMode = Fae.util.BlendMode.NORMAL;
 
     currentGroup.textures.length = 0;
     currentGroup.start = 0;
@@ -199,7 +198,11 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
             // they have all ready been calculated so we just need to push them into the buffer.
 
 
-            nextTexture = map._texture.source;
+            const vertexData = map.vertexData[i];
+            const uvs = map.tilesetData[vertexData[8]];
+            nextTexture = map.tilesets[uvs[4]].texture.source;
+
+            // nextTexture = map._texture.source;
 
             if (currentTexture !== nextTexture){
                 currentTexture = nextTexture;
@@ -234,16 +237,10 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
                     }
                 }
             }
-
             // TODO: this sum does not need to be set each frame, dirty flag?
             const tint = map.tint.bgr + (map.worldAlpha * 255 << 24);
-            const uvs = map._texture._uvs.uvsUint32;
+
             const textureId = nextTexture._id;
-            const vertexData = map.vertexData[i];
-            // const vertexData = map.vertexData.pop();
-
-
-            // debugger;
 
             // xy
             buffer.float32View[index++] = vertexData[0];
@@ -251,7 +248,6 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
             buffer.uint32View[index++] = uvs[0];
             buffer.uint32View[index++] = tint;
             buffer.float32View[index++] = textureId;
-            buffer.float32View[index++] = vertexData[8];
 
             // xy
             buffer.float32View[index++] = vertexData[2];
@@ -259,7 +255,6 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
             buffer.uint32View[index++] = uvs[1];
             buffer.uint32View[index++] = tint;
             buffer.float32View[index++] = textureId;
-            buffer.float32View[index++] = vertexData[8];
 
             // xy
             buffer.float32View[index++] = vertexData[4];
@@ -267,7 +262,6 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
             buffer.uint32View[index++] = uvs[2];
             buffer.uint32View[index++] = tint;
             buffer.float32View[index++] = textureId;
-            buffer.float32View[index++] = vertexData[8];
 
             // xy
             buffer.float32View[index++] = vertexData[6];
@@ -275,7 +269,6 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
             buffer.uint32View[index++] = uvs[3];
             buffer.uint32View[index++] = tint;
             buffer.float32View[index++] = textureId;
-            buffer.float32View[index++] = vertexData[8];
         }
 
         currentGroup.size = this.currentIndex - currentGroup.start;
@@ -283,38 +276,34 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
         this.vertexCount++;
 
         if (this.vertexBuffers.length <= this.vertexCount){
-            this._createVao(gl, this.shader.attributes);
+            this._createVao(gl, this.shaders[1].attributes);
         }
-
 
         this.vertexBuffers[this.vertexCount].upload(buffer.buffer, 0);
         this.vao = this.vaos[this.vertexCount].bind();
 
-
         // render the groups..
         for (let i = 0; i < groupCount; ++i){
+
             const group = this.groups[i];
+
             const groupTextureCount = group.textures.length;
             if (!groupTextureCount) continue;
+
 
             let shader = null;
 
             if (group.shader){
                 shader = group.shader;
             }else{
-                shader = this.shader;
+                shader = this.shaders[groupTextureCount - 1];
             }
 
             if (!shader){
-                shader = this.shader = createTileMapShader(gl);
+                shader = createTileMapShader(this.renderer, groupTextureCount);
+                this.shaders[groupTextureCount - 1] = shader;
             }
             this.renderer.state.setShader(shader);
-            
-            if(this.tileMap){
-                shader.uniforms.textureTileWidth = this.tileMap.tilesetCols;
-                shader.uniforms.textureTileHeight = this.tileMap.tilesetRows;
-            }
-
 
             for (let j = 0; j < groupTextureCount; ++j){
                 group.textures[j].bind(j);
@@ -338,8 +327,9 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
             this.flush();
         }
 
+
         // // if the uvs have not updated then no point rendering just yet!
-        if (!tilemap.texture._uvs){
+        if (!tilemap.tilesetsReady){
             return;
         }
 
@@ -354,15 +344,43 @@ class TilemapRenderer extends Fae.render.ObjectRenderer{
 TilemapRenderer.DEFAULT_SPRITE_BATCH_SIZE = 4096;
 TilemapRenderer.MAX_TEXTURE_COUNT = 32;
 
-function createTileMapShader(renderer){
-    console.trace();
-
-    let vertSource = document.getElementById('tilemap-vs').textContent;
+function createTileMapShader(renderer, maxTextures = 1){
+    const vertSource = document.getElementById('tilemap-vs').textContent;
     let fragSource = document.getElementById('tilemap-fs').textContent;
+
+    fragSource = fragSource.replace(/\{\{count\}\}/gi, maxTextures);
+    fragSource = fragSource.replace(/\{\{texture_choice\}\}/gi, generateSampleSrc(maxTextures));
 
     const shader = new Fae.render.Shader(renderer, vertSource, fragSource);
 
+    const sampleValues = [];
+
+    for (let i = 0; i < maxTextures; ++i){
+        sampleValues[i] = i;
+    }
+
     shader.bind();
-    shader.uniforms.uSampler = 0;
+    shader.uniforms.uSamplers = sampleValues;
+
     return shader;
+}
+
+function generateSampleSrc(maxTextures){
+    let src = '\n\n';
+
+    for (let i = 0; i < maxTextures; ++i)
+    {
+        if (i > 0) src += '\n    else';
+
+        if (i < maxTextures - 1)
+        {
+            src += `    if(textureId == ${i}.0)`;
+        }
+
+        src += `\n    {\n        color = texture2D(uSamplers[${i}], vTextureCoord);\n    }`;
+    }
+
+    src += '\n\n';
+
+    return src;
 }
