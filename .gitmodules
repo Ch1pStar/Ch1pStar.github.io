@@ -1,0 +1,3 @@
+[submodule "pixi-bench"]
+	path = pixi-bench
+	url = ./pixi-bench
