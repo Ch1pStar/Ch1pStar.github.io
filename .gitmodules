@@ -1,6 +1,3 @@
 [submodule "pixi-bench"]
 	path = pixi-bench
 	url = https://github.com/Ch1pStar/pixi-bench.git
-[submodule "verlet"]
-	path = verlet
-	url = ./verlet
