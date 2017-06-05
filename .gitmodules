@@ -1,3 +1,6 @@
 [submodule "pixi-bench"]
-	path = pixi-bench
-	url = https://github.com/Ch1pStar/pixi-bench.git
+    path = pixi-bench
+    url = https://github.com/Ch1pStar/pixi-bench.git
+[submodule "onemore"]
+	path = onemore
+	url = https://github.com/Ch1pStar/onemore.git
