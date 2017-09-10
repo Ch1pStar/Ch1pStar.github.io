@@ -4,3 +4,6 @@
 [submodule "onemore"]
 	path = onemore
 	url = https://github.com/Ch1pStar/onemore.git
+[submodule "r"]
+	path = r
+	url = https://github.com/Ch1pStar/mag-ilian-challenge.git
