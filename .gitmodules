@@ -9,4 +9,4 @@
 	url = https://github.com/Ch1pStar/mag-ilian-challenge.git
 [submodule "global-store"]
 	path = global-store
-	url = git@github.com:Ch1pStar/global-store.git
+	url = https://github.com/Ch1pStar/global-store.git
